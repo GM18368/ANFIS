@@ -1,3 +1,6 @@
+%clear the workspace
+clear;
+clc;
 %RRR planar manipulator IK with Anfis
 l1 = 10; % length of first arm
 l2 = 7; % length of second arm
@@ -21,17 +24,40 @@ l3 = 5; % length of third arm
 % end
 %%
 %alternate generation, is there a better way?
-theta1 = 0:0.2:pi; % all possible theta1 values
-theta2 = 0:0.4:pi/2; % all possible theta2 values
-theta3 = -pi/2:0.2:pi/2;
+theta1 = 0:0.05:pi; % all possible theta1 values
+theta2 = 0:0.05:pi/2; % all possible theta2 values
+theta3 = -pi/2:0.05:pi/2;
 [THETA1,THETA2,THETA3] = meshgrid(theta1,theta2,theta3);
 
 %%
 %FK calculations
 FKX = (l1 * cos(THETA1)) + (l2 * cos(THETA1 + THETA2)) + (l3 * cos(THETA1 + THETA2 + THETA3));
 FKY = (l1 * sin(THETA1)) + (l2 * sin(THETA1 + THETA2)) + (l3 * sin(THETA1 + THETA2 + THETA3));
-PHI = THETA1 + THETA2 + THETA3; % Where does this get used?
+PHI = THETA1 + THETA2 + THETA3; 
 
+
+%%
+%create an array of all values and unique it to reduce duplicates like the
+%paper does?
+
+fullArray = [FKX(:), FKY(:), PHI(:), THETA1(:), THETA2(:), THETA3(:)];
+
+c=fullArray(:,1:2); %sorts by unique x,y locations
+[~,idx]=uniquetol(c,0.015,'ByRows',true); %0.225
+sortedArray=fullArray(idx,:);
+
+%Set net variables since we don't want to change all the code
+
+FKX = sortedArray(:,1);
+FKY = sortedArray(:,2);
+PHI = sortedArray(:,3);
+THETA1 = sortedArray(:,4);
+THETA2 = sortedArray(:,5);
+THETA3 = sortedArray(:,6);
+
+
+
+%%
 %Plot the generated workspace?
 figure(1);
 plot(FKX(:), FKY(:),'.');
@@ -40,12 +66,12 @@ grid on;
 xlabel('x')
 ylabel('y')
 xlim([-25 25]);
-ylim([-10 25]);
+ylim([-15 25]);
 hold on;
 
 
 
-
+%%
 %genfis datasets
 data1 = [FKX(:) FKY(:)  PHI(:) ]; % create x-y-phi-theta1 dataset
 data2 = [FKX(:) FKY(:)  PHI(:) ]; % create x-y-phi-theta2 dataset
@@ -80,7 +106,7 @@ genOpt.OutputMembershipFunctionType =["linear"];
 % genOpt3.Verbose = 0; %Suppress output
 
 %set number of epochs for anfis training
-numEpochs = 200; %As suggested by paper
+numEpochs = 200; %200 suggested by paper
 
 %genOpt.InputMembershipFunctionType = 'gaussmf';
 disp('--> generating first GENFIS.')
@@ -92,8 +118,8 @@ inFIS3 = genfis(data3,THETA3(:),genOpt);
 
 %%
 %anfis setup
-%opt = anfisOptions;
-%opt.InitialFIS = 6;
+%opt1 = anfisOptions;
+%opt1.InitialFIS = 6;
 opt1 = anfisOptions('InitialFIS',inFIS1);
 opt1.DisplayANFISInformation = 0;
 opt1.DisplayErrorValues = 0;
@@ -150,16 +176,16 @@ anfis3 = anfis(fulldata3,opt3);
 
 %%
 %Curve through workspace test
-X = 15:-1:-15;
-Y = 17 - abs(X.^2)/30;
-phiV = linspace(0.5,2.5,31);
+% X = 15:-1:-15;
+% Y = 17 - abs(X.^2)/30;
+% phiV = linspace(0.5,2.5,31);
 
 %%
 %circle in workspace
-% angle = linspace(0,pi,50);
-% X = 1.5*cos(2*angle);
-% Y = 19 + 1.5*sin(2*angle);
-% phiV(1:50) = pi/2;
+angle = linspace(0,pi,50);
+X = 1.5*cos(2*angle);
+Y = 16 + 1.5*sin(2*angle);
+phiV(1:50) = pi/2;
 
 %%
 %plot validation xy coordinates

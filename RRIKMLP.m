@@ -1,4 +1,5 @@
-
+clc;
+clear;
 %RRR planar manipulator IK with a MLP.
 l1 = 10; % length of first arm
 l2 = 7; % length of second arm
@@ -11,7 +12,7 @@ l3 = 5; % length of third arm
 %     
 %     for theta2 = 0:pi/60:pi/2
 %          
-%         for theta3 = -pi/2:pi/40:pi/2
+%         for theta3 = -pi/2:pi/40:pi/2                   
 %             THETA1(i) = theta1;
 %             THETA2(i) = theta2;
 %             THETA3(i) = theta3;
@@ -24,11 +25,11 @@ l3 = 5; % length of third arm
 % 
 
 %%
-%alternate generation, do we need to normalize these?
-theta1 = 0:0.3:pi; % all possible theta1 values
-theta2 = 0:0.2:pi/2; % all possible theta2 values
-theta3 = -pi/2:0.3:pi/2; % all possible theta3 values
-%This gives about 1000 samples
+%alternate generation, Can we make this better? reduce duplicates?
+theta1 = 0:0.025:pi; 
+theta2 = 0:0.025:pi/2; 
+theta3 = -pi/2:0.025:pi/2; 
+
 [THETA1,THETA2,THETA3] = meshgrid(theta1,theta2,theta3);
 
 %%
@@ -38,15 +39,39 @@ FKY = (l1 * sin(THETA1)) + (l2 * sin(THETA1 + THETA2)) + (l3 * sin(THETA1 + THET
 
 phi = THETA1 + THETA2 + THETA3; % Where does this get used?
 
- figure(1);
- plot(FKX(:),FKY(:),'.');
- title('Generated workspace')
- grid on;
- xlabel('x')
- ylabel('y')
- xlim([-25 25]);
- ylim([-10 25]);
- hold on;
+%%
+%create an array of all values and unique it to reduce XY duplicates like the
+%paper does?
+
+fullArray = [FKX(:), FKY(:), phi(:), THETA1(:), THETA2(:), THETA3(:)];
+
+c=fullArray(:,1:2); %sorts by unique x,y locations
+[~,idx]=uniquetol(c,0.02,'ByRows',true);
+sortedArray=fullArray(idx,:);
+
+
+
+
+%Set net variables since we don't want to change all the code
+
+FKX = sortedArray(:,1);
+FKY = sortedArray(:,2);
+phi = sortedArray(:,3);
+THETA1 = sortedArray(:,4);
+THETA2 = sortedArray(:,5);
+THETA3 = sortedArray(:,6);
+%%
+%plot generated workspace
+figure(1);
+plot(FKX(:),FKY(:),'.');
+title('Generated workspace')
+grid on;
+xlabel('x')
+ylabel('y')
+xlim([-25 25]);
+ylim([-10 25]);
+hold on;
+ 
 
 
 %Join data sets and transpose
@@ -57,15 +82,15 @@ Output = [THETA1(:), THETA2(:), THETA3(:)]';
 
 
 %% Network setup & training
-%net = feedforwardnet([13 12],'trainlm'); %first attempt
-net = feedforwardnet([100],'trainlm'); %Paper suggested
-net.divideParam.trainRatio = 0.6; % training set ratio
-net.divideParam.valRatio = 0.2; % validation set ratio
-net.divideParam.testRatio = 0.2; % test set ratio
+net = feedforwardnet([13 12 12],'trainlm'); %My attempt (Way more accurate than one layer)
+%net = feedforwardnet([100],'trainlm'); %Paper suggested
+net.divideParam.trainRatio = 0.7; % training set ratio
+net.divideParam.valRatio = 0.15; % validation set ratio
+net.divideParam.testRatio = 0.15; % test set ratio
 net.trainParam.goal = 1e-6 ; %Set performance error goal
 net.trainParam.min_grad = 1e-6/100; %Set minimum gradient
 % train a neural network
-net.trainParam.epochs = 3000;
+net.trainParam.epochs = 4000;
 %Train
 net = train(net,Input,Output);
 
@@ -101,9 +126,9 @@ net = train(net,Input,Output);
 %%
 %circle in workspace
 angle = linspace(0,pi,50);
-X = 2*cos(2*angle);
-Y = 15 + 2*sin(2*angle);
-PHI(1:50) = pi/2;
+X = 5 + 1.5*cos(2*angle);
+Y = 10 + 1.5*sin(2*angle);
+PHI(1:50) = pi;
 
 %%
 %Plot test ik
