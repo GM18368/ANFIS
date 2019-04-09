@@ -1,7 +1,4 @@
-%Clear the environment
-clear;
-clc;
-%RRR planar manipulator IK
+%RRR planar manipulator IK with Anfis
 l1 = 10; % length of first arm
 l2 = 7; % length of second arm
 l3 = 5; % length of third arm
@@ -23,10 +20,10 @@ l3 = 5; % length of third arm
 %     end
 % end
 %%
-%alternate generation
-theta1 = 0:0.4:pi; % all possible theta1 values
-theta2 = 0:0.2:pi/2; % all possible theta2 values
-theta3 = -pi/2:0.4:pi/2;
+%alternate generation, is there a better way?
+theta1 = 0:0.2:pi; % all possible theta1 values
+theta2 = 0:0.4:pi/2; % all possible theta2 values
+theta3 = -pi/2:0.2:pi/2;
 [THETA1,THETA2,THETA3] = meshgrid(theta1,theta2,theta3);
 
 %%
@@ -38,6 +35,12 @@ PHI = THETA1 + THETA2 + THETA3; % Where does this get used?
 %Plot the generated workspace?
 figure(1);
 plot(FKX(:), FKY(:),'.');
+title('Generated workspace')
+grid on;
+xlabel('x')
+ylabel('y')
+xlim([-25 25]);
+ylim([-10 25]);
 hold on;
 
 
@@ -56,30 +59,28 @@ fulldata3 = [FKX(:) FKY(:)  PHI(:) THETA3(:) ];
 %Initial genfis gridpartition
 genOpt = genfisOptions('GridPartition');
 
-%initial genfis subtractive
-%genOpt = genfisOptions('SubtractiveClustering');
-%genOpt.NumClusters = 6;
-
-%Initial genfis clustering?
- %genOpt = genfisOptions('FCMClustering','FISType','sugeno');
- %genOpt2 = genfisOptions('FCMClustering','FISType','sugeno');
- %genOpt3 = genfisOptions('FCMClustering','FISType','sugeno');
-
 %gridpartition options
- genOpt.NumMembershipFunctions = [3 3 9]; %membership function number for inputs x y and phi
- genOpt.InputMembershipFunctionType = ["gbellmf" "gbellmf" "gbellmf"];
- genOpt.OutputMembershipFunctionType =["linear"];
+genOpt.NumMembershipFunctions = [3 3 2]; %membership function number for inputs x y and phi as suggested by paper
+genOpt.InputMembershipFunctionType = ["gbellmf" "gbellmf" "gbellmf"];
+genOpt.OutputMembershipFunctionType =["linear"];
 
-%clustering options
-%genOpt.NumClusters = 8; %Essentially the number of membership functions.
-%genOpt.Verbose = 0; %Suppress output
+
+%initial genfis subtractive clustering
+%genOpt = genfisOptions('SubtractiveClustering');
+%Initial genfis FCMclustering?
+% genOpt = genfisOptions('FCMClustering','FISType','sugeno');
+%genOpt2 = genfisOptions('FCMClustering','FISType','sugeno');
+%genOpt3 = genfisOptions('FCMClustering','FISType','sugeno');
+%FCMclustering options
+% genOpt.NumClusters = 9; %Essentially the number of membership functions.
+% genOpt.Verbose = 0; %Suppress output
 % genOpt2.NumClusters = 12; %Essentially the number of membership functions.
 % genOpt2.Verbose = 0; %Suppress output
 % genOpt3.NumClusters = 12; %Essentially the number of membership functions.
 % genOpt3.Verbose = 0; %Suppress output
 
 %set number of epochs for anfis training
-numEpochs = 10;
+numEpochs = 200; %As suggested by paper
 
 %genOpt.InputMembershipFunctionType = 'gaussmf';
 disp('--> generating first GENFIS.')
@@ -143,49 +144,55 @@ anfis3 = anfis(fulldata3,opt3);
 
 %%
 %straight line left side
-X = -13:0.1:5; % x coordinates for validation
-Y(1:181) = 14 % y coordinates for validation
-phiV(1:181) = pi/2; % phi for validation
+% X = -13:0.1:5; % x coordinates for validation
+% Y(1:181) = 14 % y coordinates for validation
+% phiV(1:181) = pi/2; % phi for validation
 
+%%
+%Curve through workspace test
+X = 15:-1:-15;
+Y = 17 - abs(X.^2)/30;
+phiV = linspace(0.5,2.5,31);
 
+%%
+%circle in workspace
+% angle = linspace(0,pi,50);
+% X = 1.5*cos(2*angle);
+% Y = 19 + 1.5*sin(2*angle);
+% phiV(1:50) = pi/2;
 
-
+%%
+%plot validation xy coordinates
 % figure(2);
 plot(X,Y,'-b');
-title('Comparison of target and anfis IK)','fontsize',10);
-xlim([-25 25]);
-ylim([0 25]);
+% title('Comparison of target and anfis IK)','fontsize',10);
+% xlim([-25 25]);
+% ylim([0 25]);
 % hold on;
+
+%%
 %Actual IK calculations, for comparison with anfis
-
-
 a = Y - (l3*sin(phiV)); % Y of wrist
 b = X - (l3*cos(phiV)); % X of wrist
-
 %Get theta2
-
 D = ( ((a.^2)+(b.^2) - l1^2 - l2^2)/(2*l1*l2)); %Costheta2
-
-
 THETA2D = real(acos(D));
-
 %Get theta1
-
 k1 = l2*sin(THETA2D);
 k2 = l1 + l2*cos(THETA2D);
-
-
 THETA1D = atan2((a.*k2)-(k1.*b),(a.*k1)+(b.*k2));
-
 %get theta 3
 THETA3D = phiV - (THETA1D + THETA2D);
+
 %%
-%Plot the calculated IK X&Y positions, this is green
+%Plot the calculated IK X&Y positions, this is green, can be used to test
+%if its a reasonable demand of the system
 valX = (l1 * cos(THETA1D)) + (l2 * cos(THETA1D+ THETA2D)) + (l3 * cos(THETA1D+THETA2D+THETA3D));
 valY = (l1 * sin(THETA1D)) + (l2 * sin(THETA1D+ THETA2D)) + (l3 * sin(THETA1D+THETA2D+THETA3D));
 plot(valX(:),valY(:),'-g');
 
-
+%%
+%evaluate anfis for test coordinates
 XY = [X' Y' phiV'];
 THETA1P = evalfis(XY,anfis1); % theta1 predicted by anfis1
 THETA2P = evalfis(XY,anfis2); % theta2 predicted by anfis2
@@ -209,35 +216,4 @@ ylabel('Error percentage','fontsize',10);
 xlabel('EE position number');
 title('Error as a percentage of reach radius (22)','fontsize',10);
 
-
-
-
-
-%%
-%mean squared error
-% theta1diff = (THETA1D(:) - THETA1P).^2; 
-% theta2diff = (THETA2D(:) - THETA2P).^2;
-% theta3diff = (THETA3D(:) - THETA3P).^2;
-
-% %Original metrics ,Is this a good measure of error?
-% theta1diff = THETA1D(:) - THETA1P; 
-% theta2diff = THETA2D(:) - THETA2P;
-% theta3diff = THETA3D(:) - THETA3P;
-
-%Plot the errors for each theta
-% figure(3);
-% subplot(3,1,1);
-% plot(theta1diff);
-% ylabel('Theta1 Error','fontsize',10)
-% title('MSE 1','fontsize',10)
-% 
-% subplot(3,1,2);
-% plot(theta2diff);
-% ylabel('Theta2 Error','fontsize',10)
-% title('MSE 2','fontsize',10)
-% 
-% subplot(3,1,3);
-% plot(theta3diff);
-% ylabel('Theta3 Error','fontsize',10)
-% title('MSE 3','fontsize',10)
 
