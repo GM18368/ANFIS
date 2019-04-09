@@ -1,12 +1,5 @@
-%Neural network RR IK, gonna try with two first
-%Inputs are the X&Y
-%Desired outputs are the actual calculated thetas
 
-
-%Clear the environment
-clear;
-clc;
-%RRR planar manipulator IK
+%RRR planar manipulator IK with a MLP.
 l1 = 10; % length of first arm
 l2 = 7; % length of second arm
 l3 = 5; % length of third arm
@@ -32,9 +25,9 @@ l3 = 5; % length of third arm
 
 %%
 %alternate generation, do we need to normalize these?
-theta1 = 0:0.1:pi; % all possible theta1 values
+theta1 = 0:0.3:pi; % all possible theta1 values
 theta2 = 0:0.2:pi/2; % all possible theta2 values
-theta3 = -pi/2:0.1:pi/2; % all possible theta3 values
+theta3 = -pi/2:0.3:pi/2; % all possible theta3 values
 %This gives about 1000 samples
 [THETA1,THETA2,THETA3] = meshgrid(theta1,theta2,theta3);
 
@@ -64,8 +57,8 @@ Output = [THETA1(:), THETA2(:), THETA3(:)]';
 
 
 %% Network setup & training
-net = feedforwardnet([13 12],'trainlm'); %first attempt
-%net = feedforwardnet([13 13 13],'trainlm'); %Second attempt
+%net = feedforwardnet([13 12],'trainlm'); %first attempt
+net = feedforwardnet([100],'trainlm'); %Paper suggested
 net.divideParam.trainRatio = 0.6; % training set ratio
 net.divideParam.valRatio = 0.2; % validation set ratio
 net.divideParam.testRatio = 0.2; % test set ratio
@@ -101,11 +94,10 @@ net = train(net,Input,Output);
 % PHI = linspace(0.5,2.5,31);
 
 %%
-%curve on right side side
-% Y = 15:-0.5:0;
-% X = 20 - abs(Y.^2)/40;
-% PHI = linspace(1.0,0,31);
-
+%curve on left side side
+% Y = 0:0.5:15;
+% X = -18 + abs(Y.^2)/40;
+% PHI(1:31) = pi;
 %%
 %circle in workspace
 angle = linspace(0,pi,50);
