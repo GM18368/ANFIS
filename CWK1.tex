@@ -1,0 +1,267 @@
+\documentclass[a4paper,11pt]{article}
+
+\usepackage{titlesec} 
+\usepackage[left=2cm, right=2cm, top=2cm]{geometry} 
+\usepackage{graphicx}
+\usepackage{wrapfig}
+\usepackage{lscape}
+\usepackage{rotating}
+\usepackage{epstopdf}
+\usepackage{tabularx}
+\usepackage{placeins}
+\usepackage{float}
+\usepackage{mwe}
+\usepackage{subfig}
+\setcounter{secnumdepth}{4}
+
+\titleformat{\paragraph}
+{\normalfont\normalsize\bfseries}{\theparagraph}{1em}{}
+\titlespacing*{\paragraph}
+{0pt}{3.25ex plus 1ex minus .2ex}{1.5ex plus .2ex}
+
+
+
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{figure}[!t]
+  \includegraphics[width=\linewidth]{UWElogo.jpg}
+\end{figure}
+
+\title{Anfis Inverse kinematics} %Change this at some point
+
+\author{Joshua Cox \\
+UWE Number: }
+\date{3/04/2019}
+
+\maketitle
+\center \large Intelligent adaptive systems - MSc Robotics
+\pagenumbering{roman}
+\end{titlepage}
+
+
+\pagenumbering{arabic}
+
+
+\section{Relevant examples of IK learning}
+Various different approaches have been used in inverse kinematics learning such as using Anfis, neural networks and genetic algorithms. By far the most popular are artificial neural networks, these can be broken down into various types such as multilayer perceptron’s, radial basis functions and recurrent neural networks.
+
+One approach taken by Singh and Banga \cite{anfis1} used Anfis to learn the inverse kinematics of both a 2 joint and 3 joint planar manipulators. The number of Anfis system was the same as the number of joints, the inputs into the 2 joint system were the X and Y end effector locations. The input into the 3 joint system also only consisted of X and Y. The paper states that they achieved a suitable level of error, however this paper does not describe how many membership functions were used. The input dataset was adjusted so that each XY location had a unique pose.
+
+Another study by Duka \cite{anfis2} also used anfis for IK learning, this study solely focused on a 3-joint manipulator. However the inputs were the X Y and Phi (EE pose) of the end effector position corresponding to the joint angles. The final approach after testing different numbers of membership functions consisted of 3 Anfis systems with 6 membership functions each and each of these were trained with 1000 samples and 200 epochs; it matched the chosen trajectories quite well. %Photo?
+
+Another study by Duka  \cite{mlp1}  looks at using a multi-layer perceptron for inverse kinematics, the inputs to the network are the X, Y and phi. The chosen structure had one hidden layer of 100 sigmoid activated neurons with 3 outputs neurons corresponding to the joint angles. The network can match the desired output arbitrary well. This study notes that further improvements to the network could be made, such as looking at the size and number of hidden layers. This paper is used as a reference for the MLP developed in this assignment. Photo
+
+A study by Yang, Moghavvemi and Tolman\cite{mlprbf} looked at both MLPs and RBFs for inverse kinematics of a 3R planar manipulator and compared them. The inputs to both types of network were the X, Y and Phi. The paper describes details of both of the systems developed such as the learning used.
+
+Some studies such as the one by Yuan and Feng \cite{mixed1} have looked at combining approaches to reduce error. In this approach the inverse kinematics is calculated with 3 separate systems (2 MLP’s and one RBF) and the error of each is compared and the best one is chosen.%Is this relevant?
+%summary
+The main comparison that can be made between the approaches is that Anfis based approaches require less training data than neural network approaches.%Is this true?
+
+
+%Genetic algorithms, any other approaches?
+
+
+
+
+
+\section{Inverse kinematics with Anfis}
+\subsection{Data/workspace generation}
+In order to generate a dataset that Anfis could be trained on a workspace was generated using the forward kinematics equations for a 3R planar manipulator with link lengths of 10,7,5 for L1,L2 and L3 respectively. These are:
+%fk equations
+
+
+\[ X = L1 \times  \cos(q1)+ L2 \times \cos(q1 + q2) + L3 \times  \cos(q1 + q2 + q3) \]
+\[ Y = L1 \times  \sin(q1)+ L2 \times  \sin(q1 + q2) + L3 \times  \sin(q1 + q2 + q3) \]
+\[ \phi = q1 + q2 + q3\]
+
+These positions were calculated across a range of joint angles. The joint limits for each joint are from 0 to pi for q1, from 0 to pi/2 for q2 and from -pi/2 to pi/2 for q3. Note that problems may arise due to the possibility of theta 3 being either positive or negative, which will result in locations with multiple solutions. The size of the dataset can be adjusted by changing the interval in the for loop (this can be done for a specific angle or for all). The dataset for the pose (Phi) is also created at this time, as it is the summation of the joint angles. Since the the studyb by Singh and Banga did not use Phi as an input but the study by Duka does use it as an input, this is the approach that will be used.
+The end result is a dataset either with a variety of end effector poses (phi’s) or without, although both will have the end effectors positions and their associated joint angles (which will be the training output). The dataset was adjusted to reduce the density of end effector positions in certain locations (due to the joint limits of the third joint creating redudancy), this was also done by %Reduce overlap?
+
+The workspace is shown in figure \ref{fig:ANFISwork}.
+
+\begin{figure}[H]
+\centering
+  \includegraphics[scale=.5]{ANFISworkspace.jpg}
+  \caption{Generated workspace for Anfis training}
+\label{fig:ANFISwork}
+\end{figure}
+
+
+\subsection{Anfis structure and training}
+%GENFIS for initial design? Chosen membership function type?
+For learning inverse kinematics, a set of 3 Anfis systems were used, the inputs to each were the X and Y of the generated end effector locations as well as the corresponding Phi(pose), the training outputs of each system were the corresponding joint angle (theta), this is similar to the approach taken by \cite{anfis1}.
+
+The number of membership functions for each of the systems in the study by \cite{anfis2} was 6 for each, these were the starting parameters for this assignment. The number of epochs was chosen for each of the Anfis systems and %they are for the first, for the second and for the third.
+
+These values were selected by testing which number of membership functions gave the most accurate inverse kinematics and then slowly adjusting the number of epochs until suitable generalization occurred. %HOW DID WE GET THERE?
+%Relate this to the relevant paper?
+The final number of membership functions is 5 for each input (X,Y,PHI).
+
+%how big is the rull set?
+%membership functions?
+
+\subsection{Validation}
+The chosen error metric for validation is the error as a percentage of the reach radius (Which is 22 units). In order to validate the system, several XY positions were input into the system and the theta that is output was then fed into the forwards kinematics equations and then plotted. The calculated end effector position by Anfis was then compared to the desired position. It was tested over a range of XY locations as well as poses to ensure good generalization.
+The inverse kinematics of the manipulator were also calculated analytically, this enabled a comparison between the output joint angles and positions of both systems. The overall error of the system is suitably low as shown by figure \ref{fig:ANFIS}
+which shows the error across each of the chosen XY validation points.
+%IK equations?
+
+%Asking for an actually possible configuration!
+
+\begin{figure}[H]
+
+\begin{minipage}{.5\linewidth}
+\centering
+\subfloat{\includegraphics[scale=.3]{ANFIScircle}}\\{Circle I.K comparison}
+\end{minipage}
+\begin{minipage}{.5\linewidth}
+\centering
+\subfloat{\includegraphics[scale=.3]{ANFIScircleError}}\\{Circle I.K error \%}
+
+\end{minipage}\par\medskip
+
+\begin{minipage}{.5\linewidth}
+\centering
+\subfloat{\includegraphics[scale=.3]{ANFISsquare}}\\{Square I.K comparison}
+
+\end{minipage}
+\begin{minipage}{.5\linewidth}
+\centering
+\subfloat{\includegraphics[scale=.3]{ANFISsquareError}}\\{Square I.K error \%}
+
+\end{minipage}\par\medskip
+
+\begin{minipage}{.5\linewidth}
+\centering
+\subfloat{\includegraphics[scale=.3]{ANFIScurve}}\\{Curve I.K comparison}
+
+\end{minipage}
+\begin{minipage}{.5\linewidth}
+\centering
+\subfloat{\includegraphics[scale=.3]{ANFIScurveError}}\\{Curve I.K error \%}
+
+\end{minipage}
+\caption{Comparison of ANFIS I.K to target (left) and associated error (right)}
+\label{fig:ANFIS}
+\end{figure}
+
+
+\subsection{Discussion}
+%Discuss general accuracy and ease of this method?
+%Benefits of using Anfis?
+%Problems with 3rd joint? Has trouble with points it could reach with either configuration? This would be worse if q2 could do the same.
+
+
+
+
+
+\section{Inverse kinematics with MLP}
+\subsection{Data/workspace generation}
+In comparison to Anfis multi-layer perceptron’s can learn from a much larger dataset. The dataset was generated in a similar fashion, however the intervals were much smaller resulting in a much denser workspace with a larger dataset as a result, as shown in figure \ref{fig:MLPwork}
+The inputs into the MLP are the X Y and pose of the end effector. Which are calculated using the same FK equations as used previously.
+\begin{figure}[H]
+\centering
+  \includegraphics[scale=.5]{MLPworkspace.jpg}
+  \caption{Generated workspace for MLP training}
+\label{fig:MLPwork}
+\end{figure}
+
+
+\subsection{MLP structure and training}
+The study by \cite{mlp1} used one hidden layer with 100 nodes for IK learning. However, it is noted in the study that further work involving optimization of the network is necessary. As such the starting point for this assignment was with these parameters. 
+The final structure of the MLP is shown in figure \ref{fig:MLPstr}, it consists of 3 hidden layers with
+
+\begin{figure}[H]
+
+\begin{minipage}{.5\linewidth}
+\centering
+\subfloat[a]{\includegraphics[scale=.8]{MLPstructure.jpg}}
+\end{minipage}
+\begin{minipage}{.5\linewidth}
+\centering
+\subfloat[b]{\includegraphics[scale=.4]{MLPperformance.jpg}}
+\end{minipage}\par\medskip
+
+\caption{Structure(a) and performance of MLP(b)}
+\label{fig:MLPstr}
+\end{figure}
+The training performance of the MLP is also shown in \ref{fig:MLPstr} 
+The chosen training method for the MLP is trainlm.
+The generated dataset was partitioned into training, validation and testing, with the ratio 0.7:0.15:0.15 respectively. The number of max epochs was set at 4000, however this was unecessary as the validations checks stopped the training when the validition error no longer improves, the training stopped at %epoch?.
+ The minimum performance goal was set to 1e-6 and the minimum gradient was set to 1e-6/100.
+
+
+
+\subsection{Validation}
+%Talk about the actual MLP performance as well as your own validation set
+While an advantage of MLP's is that they are validated while training, testing the network on other data is necessary to ensure the inverse kinematics are correct.
+The error metric used for this is the same as the one used in the Anfis system. Which is the distance between target position and calculated position as a percentage of the total reach radius.
+Figure showns 3 sets of validation points, the MLP was tested across various shapes and poses to ensure good generalization. The error for each of these is shown in figure \ref{fig:MLP}.
+\begin{figure}[H]
+
+\begin{minipage}{.5\linewidth}
+\centering
+\subfloat{\includegraphics[scale=.3]{MLPcircle}}\\{Circle I.K comparison}
+\end{minipage}
+\begin{minipage}{.5\linewidth}
+\centering
+\subfloat{\includegraphics[scale=.3]{MLPcircleError}}\\{Circle I.K error \%}
+
+\end{minipage}\par\medskip
+
+\begin{minipage}{.5\linewidth}
+\centering
+\subfloat{\includegraphics[scale=.3]{MLPsquare}}\\{Square I.K comparison}
+
+\end{minipage}
+\begin{minipage}{.5\linewidth}
+\centering
+\subfloat{\includegraphics[scale=.3]{MLPsquareError}}\\{Square I.K error \%}
+
+\end{minipage}\par\medskip
+
+\begin{minipage}{.5\linewidth}
+\centering
+\subfloat{\includegraphics[scale=.3]{MLPcurve}}\\{Curve I.K comparison}
+
+\end{minipage}
+\begin{minipage}{.5\linewidth}
+\centering
+\subfloat{\includegraphics[scale=.3]{MLPcurveError}}\\{Curve I.K error \%}
+
+\end{minipage}
+\caption{Comparison of MLP I.K to target (left) and associated error (right)}
+\label{fig:MLP}
+\end{figure}
+
+\subsection{Discussion}
+
+The dataset used for this approach was much larger than that of the Anfis system. This may be a factor to take into consideration when using either of these approaches for inverse kinematics.
+Neural networks using validation during training is useful for gauging the performance of the network design.
+The MLP has trouble with certain configurations. This is due to the training dataset containing not enough poses for the end effector positions on the edges of the workspace (These are still within the dextrous workspace; which is confirmed by analytical inverse kinematics). However, this can be offset by having a larger dataset but that results in a longer training time and perhaps a way to reduce the number of same poses for certain positions would be advantagous.
+
+
+
+
+\section{Problems with IK learning}
+%Problem with elbow up or down
+%Reducing joint velocity as part of a cost function?
+%How was this solved?
+%Implementation?
+\section{Search algorithms}
+%Genetic algorithms
+%Implementation?
+
+
+
+
+
+
+\clearpage
+\bibliography{FuzzyRef}
+\bibliographystyle{ieeetr}%IEEE 
+
+\end{document}
