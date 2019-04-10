@@ -1,20 +1,20 @@
+
+%Inverse kinematics of a 3 link planar manipulator using Anfis
 clear;
 clc;
 
-%Set Ik test type, can be circle, leftLine, rightLine, curve,
+%Set Ik test type, can be leftCircle, rightCircle, leftLine, rightLine, curve,
 %leftCurve,square
-testType = "circle";
+testType = "rightCircle";
 
-%include Phi(pose)? 1 for yes, 0 for no
-includePhi = 1;
+%number of epochs for each system
+numEpochs1 = 300;
+numEpochs2 = 300;
+numEpochs3 = 200;
 
-%number of epochs?
-numEpochs1 = 10;
-numEpochs2 = 10;
-numEpochs3 = 10;
-%workspace resolution?
-workSpaceRes = 0.03; %0.025
-phiRes = 0.001;
+%workspace resolution, this adjusts density
+workSpaceRes = 0.02;%0.02 
+
 
 %RRR planar manipulator IK with Anfis
 l1 = 10; % length of first arm
@@ -28,9 +28,9 @@ theta1 = 0:0.025:pi; % all possible theta1 values
 theta2 = 0:0.1:pi/2; % all possible theta2 values
 theta3 = -pi/2:0.1:pi/2;% all possible theta2 values
 
-% theta1 = [linspace(0,pi/2,100) linspace(pi/2,pi/1.5,50) linspace(pi/1.5,pi,100)];
-% theta2 = [linspace(0,pi/4,2) linspace(pi/4,pi/3,2) linspace(pi/3,pi/2,2)];
-% theta3 = [linspace(-pi/2,-pi/4,10) linspace(-pi/4,pi/4,4) linspace(pi/4,pi/2,10)];
+%  theta1 = 0:0.1:pi; % all possible theta1 values
+%  theta2 = 0:0.1:pi/2; % all possible theta2 values
+%  theta3 = -pi/2:0.1:pi/2;% all possible theta2 values
 
 [THETA1,THETA2,THETA3] = meshgrid(theta1,theta2,theta3);
 
@@ -46,16 +46,10 @@ PHI = THETA1 + THETA2 + THETA3; %one paper uses this, one does not?
 
 fullArray = [FKX(:), FKY(:), PHI(:), THETA1(:), THETA2(:), THETA3(:)];
 
-
-
 c=fullArray(:,1:2); %sorts by x,y locations that aren't too close together
 
 [~,idx]=uniquetol(c,workSpaceRes,'ByRows',true); 
 sortedArray=fullArray(idx,:);
-
-% d=fullArray(:,3); %sorts by poses that aren't too close together
-% [~,idu]=uniquetol(d,phiRes); 
-% sortedArray=fullArray(idu,:);
 
 
 %Set net variables since we don't want to change all the code
@@ -84,82 +78,69 @@ hold on;
 
 
 %%
-if includePhi == 1
-    %genfis datasets
-    data1 = [FKX(:) FKY(:)  PHI(:)]; % create x-y-phi-theta1 dataset
-    data2 = [FKX(:) FKY(:)  PHI(:)]; % create x-y-phi-theta2 dataset
-    data3 = [FKX(:) FKY(:)  PHI(:)];% create x-y-phi-theta3 dataset
-    %anfis datasets
-    fulldata1 = [FKX(:) FKY(:)  PHI(:) THETA1(:)];
-    fulldata2 = [FKX(:) FKY(:)  PHI(:) THETA2(:)];
-    fulldata3 = [FKX(:) FKY(:)  PHI(:) THETA3(:)];
-    %Initial genfis gridpartition
-    genOpt = genfisOptions('GridPartition');
-    %gridpartition options
-    genOpt.NumMembershipFunctions = [5 5 5]; %membership function number for inputs x y and phi as suggested by paper 2
-    genOpt.InputMembershipFunctionType = ["gbellmf" "gbellmf" "gbellmf" ];
-    genOpt.OutputMembershipFunctionType = "linear";
-end
-%%
-if includePhi == 0
-    %genfis datasets test no phi
-    data1 = [FKX(:) FKY(:)]; % create x-y-phi-theta1 dataset
-    data2 = [FKX(:) FKY(:)]; % create x-y-phi-theta2 dataset
-    data3 = [FKX(:) FKY(:)];% create x-y-phi-theta3 dataset
-    %anfis datasets test
-    fulldata1 = [FKX(:) FKY(:)  THETA1(:)];
-    fulldata2 = [FKX(:) FKY(:)  THETA2(:)];
-    fulldata3 = [FKX(:) FKY(:)  THETA3(:)];
+%genfis datasets
+data1 = [FKX(:) FKY(:)  PHI(:)]; % create x-y-phi-theta1 dataset
+data2 = [FKX(:) FKY(:)  PHI(:)]; % create x-y-phi-theta2 dataset
+data3 = [FKX(:) FKY(:)  PHI(:)];% create x-y-phi-theta3 dataset
+%anfis datasets
+fulldata1 = [FKX(:) FKY(:)  PHI(:) THETA1(:)];
+fulldata2 = [FKX(:) FKY(:)  PHI(:) THETA2(:)];
+fulldata3 = [FKX(:) FKY(:)  PHI(:) THETA3(:)];
 
-    %Initial genfis gridpartition
-    genOpt = genfisOptions('GridPartition');
-    %gridpartition options
-    genOpt.NumMembershipFunctions = [5 5]; %membership function number for inputs x y as suggested by paper 1
-    genOpt.InputMembershipFunctionType = ["gbellmf" "gbellmf" ];
-    genOpt.OutputMembershipFunctionType = "linear";
-end
+%%
+%Initial genfis gridpartition
+genOpt = genfisOptions('GridPartition');
+%gridpartition options
+genOpt.NumMembershipFunctions = [4 4 2]; %membership function number for inputs x y and phi as suggested by paper 2
+genOpt.InputMembershipFunctionType = ["gaussmf" "gaussmf" "gaussmf" ];
+genOpt.OutputMembershipFunctionType = "linear";
+
 %%
 %set number of epochs for anfis training
-%numEpochs = 50; %200 suggested by paper
 
 %First genfis
 disp('--> first GENFIS.')
 inFIS1 = genfis(data1,THETA1(:),genOpt);
 
 % %Second genfis
-%genOpt.NumMembershipFunctions = [5 5]; %Change the number of membship functions but keep the same type
 disp('--> second GENFIS.')
 inFIS2 = genfis(data2,THETA2(:),genOpt);
 
-% %third genfis
-%genOpt.NumMembershipFunctions = [5 5]; 
+% %third genfis 
 disp('--> third GENFIS.')
 inFIS3 = genfis(data3,THETA3(:),genOpt);
 
 %%
-%anfis setup
-
+%anfis setup & suppress outputs
 opt1 = anfisOptions('InitialFIS',inFIS1);
+% opt1 = anfisOptions;
 opt1.DisplayANFISInformation = 0;
 opt1.DisplayErrorValues = 0;
 opt1.DisplayStepSize = 0;
 opt1.DisplayFinalResults = 0;
-%opt1.ErrorGoal = 1e-8;
+opt1.ErrorGoal = 1e-4;
+%opt1.InitialFIS = 3;
+%opt1.ValidationData = checkdata1;
 %anfis2
 opt2 = anfisOptions('InitialFIS',inFIS2);
+%opt2 = anfisOptions;
 opt2.DisplayANFISInformation = 0;
 opt2.DisplayErrorValues = 0;
 opt2.DisplayStepSize = 0;
 opt2.DisplayFinalResults = 0;
-%opt2.ErrorGoal = 1e-8;
+opt2.ErrorGoal = 1e-4; 
+%opt2.InitialFIS = 4;
+%opt2.ValidationData = checkdata2;
 %anfis3
 opt3 = anfisOptions('InitialFIS',inFIS3);
+%opt3 = anfisOptions;
 opt3.DisplayANFISInformation = 0;
 opt3.DisplayErrorValues = 0;
 opt3.DisplayStepSize = 0;
 opt3.DisplayFinalResults = 0;
-%opt3.ErrorGoal = 1e-8;
-
+opt3.ErrorGoal = 1e-4; 
+%opt3.InitialFIS = 3; %only for use with just anfis
+%opt3.ValidationData = checkdata3;
 
 
 %%
@@ -171,17 +152,16 @@ anfis1 = anfis(fulldata1,opt1);
 
 %Train anfis2
 disp('--> Training second ANFIS network.')
-% opt.InitialFIS = 5;
+
 opt2.EpochNumber = numEpochs2;
 anfis2 = anfis(fulldata2,opt2);
 
 %train anfis3
 disp('--> Training third ANFIS network.')
-% opt.InitialFIS = 4;
 opt3.EpochNumber = numEpochs3;
 anfis3 = anfis(fulldata3,opt3);
 
-%% Validation tests, can rerun from here and just change testType
+%% Validation tests 
 %straight line right side test
 if testType == "rightLine"
     X = linspace(12,0,30); % x coordinates for validation
@@ -211,11 +191,20 @@ if testType == "leftCurve"
 end
 
 % %circle in workspace test
-if testType == "circle"
+if testType == "leftCircle"
     angle = linspace(0,pi,30);
-    X = -10 + 1.5*cos(2*angle);
-    Y = 14 + 1.5*sin(2*angle);
-    phiV(1:30) = pi;
+    X = -15 + 1.5*cos(2*angle);
+    Y = -5 + 1.5*sin(2*angle);
+    phiV(1:30) = 3.6;
+    
+end
+
+% %circle in workspace test
+if testType == "rightCircle"
+    angle = linspace(0,pi,30);
+    X = 10 + 1.5*cos(2*angle);
+    Y = 16 + 1.5*sin(2*angle);
+    phiV(1:30) = pi/3;
     
 end
 
@@ -231,7 +220,6 @@ if testType == "square"
    phiV(1:30) = pi/1.5;
 end
 
-
 %%
 %plot validation xy coordinates
 figure(2);
@@ -241,7 +229,7 @@ title('Comparison of target and anfis IK)','fontsize',10);
 %ylim([-15 25]);
 hold on;
 
-%%
+% %%
 % %Actual IK calculations, for comparison with anfis
 % a = Y - (l3*sin(phiV)); % Y of wrist
 % b = X - (l3*cos(phiV)); % X of wrist
@@ -263,11 +251,9 @@ hold on;
 
 %%
 %evaluate anfis for test coordinates
-if includePhi == 1
-    XY = [X' Y' phiV'];
-else
-    XY = [X' Y']; 
-end
+
+XY = [X' Y' phiV'];
+
 THETA1P = evalfis(XY,anfis1); % theta1 predicted by anfis1
 THETA2P = evalfis(XY,anfis2); % theta2 predicted by anfis2
 THETA3P = evalfis(XY,anfis3); % theta3 predicted by anfis3

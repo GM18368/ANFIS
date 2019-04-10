@@ -1,9 +1,9 @@
-%RRR planar manipulator IK with a MLP.
 
 
 
-
-
+%Inverse kinematics of a 3 link planar manipulator using a MLP
+clear;
+clc;
 %Set Ik test type, can be circle, leftLine, rightLine, curve,
 %leftCurve,square
 testType = "circle";
